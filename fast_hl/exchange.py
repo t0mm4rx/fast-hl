@@ -6,10 +6,10 @@ from eth_abi import encode
 from eth_account.signers.local import LocalAccount
 from eth_utils import keccak, to_hex
 
-from hyperliquid.api import API
-from hyperliquid.info import Info
-from hyperliquid.utils.constants import MAINNET_API_URL
-from hyperliquid.utils.signing import (
+from fast_hl.api import API
+from fast_hl.info import Info
+from fast_hl.utils.constants import MAINNET_API_URL
+from fast_hl.utils.signing import (
     ZERO_ADDRESS,
     CancelRequest,
     CancelByCloidRequest,
@@ -32,7 +32,7 @@ from hyperliquid.utils.signing import (
     sign_agent,
     str_to_bytes16,
 )
-from hyperliquid.utils.types import Any, List, Literal, Meta, Optional, Tuple, Cloid
+from fast_hl.utils.types import Any, List, Literal, Meta, Optional, Tuple, Cloid
 
 
 class Exchange(API):
@@ -40,24 +40,29 @@ class Exchange(API):
     # Default Max Slippage for Market Orders 5%
     DEFAULT_SLIPPAGE = 0.05
 
-    def __init__(
+    # async def __new__(cls, *a, **kw):
+    #     instance = super().__new__(cls)
+    #     await instance.__init__(*a, **kw)
+    #     return instance
+
+    async def __init__(
         self,
         wallet: LocalAccount,
         base_url: Optional[str] = None,
         meta: Optional[Meta] = None,
         vault_address: Optional[str] = None,
     ):
-        super().__init__(base_url)
+        await super().__init__(base_url)
         self.wallet = wallet
         self.vault_address = vault_address
-        self.info = Info(base_url, skip_ws=True)
+        self.info = await Info(base_url, skip_ws=True)
         if meta is None:
-            self.meta = self.info.meta()
+            self.meta = await self.info.meta()
         else:
             self.meta = meta
         self.coin_to_asset = {asset_info["name"]: asset for (asset, asset_info) in enumerate(self.meta["universe"])}
 
-    def _post_action(self, action, signature, nonce):
+    async def _post_action(self, action, signature, nonce):
         payload = {
             "action": action,
             "nonce": nonce,
@@ -65,7 +70,7 @@ class Exchange(API):
             "vaultAddress": self.vault_address,
         }
         logging.debug(payload)
-        return self.post("/exchange", payload)
+        return await self.post("/exchange", payload)
 
     def _slippage_price(
         self,
@@ -83,7 +88,7 @@ class Exchange(API):
         # We round px to 5 significant figures and 6 decimals
         return round(float(f"{px:.5g}"), 6)
 
-    def order(
+    async def order(
         self,
         coin: str,
         is_buy: bool,
@@ -103,9 +108,9 @@ class Exchange(API):
         }
         if cloid:
             order["cloid"] = cloid
-        return self.bulk_orders([order])
+        return await self.bulk_orders([order])
 
-    def bulk_orders(self, order_requests: List[OrderRequest]) -> Any:
+    async def bulk_orders(self, order_requests: List[OrderRequest]) -> Any:
         order_specs: List[OrderSpec] = [
             order_request_to_order_spec(order, self.coin_to_asset[order["coin"]]) for order in order_requests
         ]
@@ -137,7 +142,7 @@ class Exchange(API):
             self.base_url == MAINNET_API_URL,
         )
 
-        return self._post_action(
+        return await self._post_action(
             {
                 "type": "order",
                 "grouping": grouping,
@@ -147,7 +152,7 @@ class Exchange(API):
             timestamp,
         )
 
-    def modify_order(
+    async def modify_order(
         self,
         oid: int,
         coin: str,
@@ -171,9 +176,9 @@ class Exchange(API):
                 "cloid": cloid,
             },
         }
-        return self.bulk_modify_orders([modify])
+        return await self.bulk_modify_orders([modify])
 
-    def bulk_modify_orders(self, modify_requests: List[ModifyRequest]) -> Any:
+    async def bulk_modify_orders(self, modify_requests: List[ModifyRequest]) -> Any:
         modify_specs: List[ModifySpec] = [
             {
                 "oid": modify["oid"],
@@ -197,7 +202,7 @@ class Exchange(API):
             action_type_code=40,
         )
 
-        return self._post_action(
+        return await self._post_action(
             {
                 "type": "batchModify",
                 "modifies": [modify_spec_to_modify_wire(modify_spec) for modify_spec in modify_specs],
@@ -206,7 +211,7 @@ class Exchange(API):
             timestamp,
         )
 
-    def market_open(
+    async def market_open(
         self,
         coin: str,
         is_buy: bool,
@@ -219,9 +224,9 @@ class Exchange(API):
         # Get aggressive Market Price
         px = self._slippage_price(coin, is_buy, slippage, px)
         # Market Order is an aggressive Limit Order IoC
-        return self.order(coin, is_buy, sz, px, order_type={"limit": {"tif": "Ioc"}}, reduce_only=False, cloid=cloid)
+        return await self.order(coin, is_buy, sz, px, order_type={"limit": {"tif": "Ioc"}}, reduce_only=False, cloid=cloid)
 
-    def market_close(
+    async def market_close(
         self,
         coin: str,
         sz: Optional[float] = None,
@@ -241,15 +246,15 @@ class Exchange(API):
             # Get aggressive Market Price
             px = self._slippage_price(coin, is_buy, slippage, px)
             # Market Order is an aggressive Limit Order IoC
-            return self.order(coin, is_buy, sz, px, order_type={"limit": {"tif": "Ioc"}}, reduce_only=True, cloid=cloid)
+            return await self.order(coin, is_buy, sz, px, order_type={"limit": {"tif": "Ioc"}}, reduce_only=True, cloid=cloid)
 
-    def cancel(self, coin: str, oid: int) -> Any:
-        return self.bulk_cancel([{"coin": coin, "oid": oid}])
+    async def cancel(self, coin: str, oid: int) -> Any:
+        return await self.bulk_cancel([{"coin": coin, "oid": oid}])
 
-    def cancel_by_cloid(self, coin: str, cloid: Cloid) -> Any:
-        return self.bulk_cancel_by_cloid([{"coin": coin, "cloid": cloid}])
+    async def cancel_by_cloid(self, coin: str, cloid: Cloid) -> Any:
+        return await self.bulk_cancel_by_cloid([{"coin": coin, "cloid": cloid}])
 
-    def bulk_cancel(self, cancel_requests: List[CancelRequest]) -> Any:
+    async def bulk_cancel(self, cancel_requests: List[CancelRequest]) -> Any:
         timestamp = get_timestamp_ms()
         signature = sign_l1_action(
             self.wallet,
@@ -259,7 +264,7 @@ class Exchange(API):
             timestamp,
             self.base_url == MAINNET_API_URL,
         )
-        return self._post_action(
+        return await self._post_action(
             {
                 "type": "cancel",
                 "cancels": [
@@ -274,7 +279,7 @@ class Exchange(API):
             timestamp,
         )
 
-    def bulk_cancel_by_cloid(self, cancel_requests: List[CancelByCloidRequest]) -> Any:
+    async def bulk_cancel_by_cloid(self, cancel_requests: List[CancelByCloidRequest]) -> Any:
         timestamp = get_timestamp_ms()
         signature = sign_l1_action(
             self.wallet,
@@ -289,7 +294,7 @@ class Exchange(API):
             timestamp,
             self.base_url == MAINNET_API_URL,
         )
-        return self._post_action(
+        return await self._post_action(
             {
                 "type": "cancelByCloid",
                 "cancels": [
@@ -304,7 +309,7 @@ class Exchange(API):
             timestamp,
         )
 
-    def update_leverage(self, leverage: int, coin: str, is_cross: bool = True) -> Any:
+    async def update_leverage(self, leverage: int, coin: str, is_cross: bool = True) -> Any:
         timestamp = get_timestamp_ms()
         asset = self.coin_to_asset[coin]
         signature = sign_l1_action(
@@ -315,7 +320,7 @@ class Exchange(API):
             timestamp,
             self.base_url == MAINNET_API_URL,
         )
-        return self._post_action(
+        return await self._post_action(
             {
                 "type": "updateLeverage",
                 "asset": asset,
@@ -326,7 +331,7 @@ class Exchange(API):
             timestamp,
         )
 
-    def update_isolated_margin(self, amount: float, coin: str) -> Any:
+    async def update_isolated_margin(self, amount: float, coin: str) -> Any:
         timestamp = get_timestamp_ms()
         asset = self.coin_to_asset[coin]
         amount = float_to_usd_int(amount)
@@ -338,7 +343,7 @@ class Exchange(API):
             timestamp,
             self.base_url == MAINNET_API_URL,
         )
-        return self._post_action(
+        return await self._post_action(
             {
                 "type": "updateIsolatedMargin",
                 "asset": asset,
@@ -349,7 +354,7 @@ class Exchange(API):
             timestamp,
         )
 
-    def usd_transfer(self, amount: float, destination: str) -> Any:
+    async def usd_transfer(self, amount: float, destination: str) -> Any:
         timestamp = get_timestamp_ms()
         payload = {
             "destination": destination,
@@ -358,7 +363,7 @@ class Exchange(API):
         }
         is_mainnet = self.base_url == MAINNET_API_URL
         signature = sign_usd_transfer_action(self.wallet, payload, is_mainnet)
-        return self._post_action(
+        return await self._post_action(
             {
                 "chain": "Arbitrum" if is_mainnet else "ArbitrumTestnet",
                 "payload": payload,
@@ -368,7 +373,7 @@ class Exchange(API):
             timestamp,
         )
 
-    def withdraw_from_bridge(self, usd: float, destination: str) -> Any:
+    async def withdraw_from_bridge(self, usd: float, destination: str) -> Any:
         timestamp = get_timestamp_ms()
         payload = {
             "destination": destination,
@@ -377,7 +382,7 @@ class Exchange(API):
         }
         is_mainnet = self.base_url == MAINNET_API_URL
         signature = sign_withdraw_from_bridge_action(self.wallet, payload, is_mainnet)
-        return self._post_action(
+        return await self._post_action(
             {
                 "chain": "Arbitrum" if is_mainnet else "ArbitrumTestnet",
                 "payload": payload,
@@ -387,7 +392,7 @@ class Exchange(API):
             timestamp,
         )
 
-    def approve_agent(self, name: Optional[str] = None) -> Tuple[Any, str]:
+    async def approve_agent(self, name: Optional[str] = None) -> Tuple[Any, str]:
         agent_key = "0x" + secrets.token_hex(32)
         account = eth_account.Account.from_key(agent_key)
         if name is not None:
@@ -411,7 +416,7 @@ class Exchange(API):
         if name is not None:
             action["extraAgentName"] = name
         return (
-            self._post_action(
+            await self._post_action(
                 action,
                 signature,
                 timestamp,

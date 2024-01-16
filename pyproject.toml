@@ -4,7 +4,7 @@ requires = ["poetry_core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "hyperliquid-python-sdk"
+name = "fast-hl"
 version = "0.1.19"
 description = "SDK for Hyperliquid API trading with Python."
 readme = "README.md"
@@ -13,7 +13,7 @@ license = "MIT"
 repository = "https://github.com/hyperliquid-dex/hyperliquid-python-sdk"
 homepage = "https://github.com/hyperliquid-dex/hyperliquid-python-sdk"
 packages = [
-  { include = "hyperliquid" },
+  { include = "fast_hl" },
 ]
 
 # Keywords description https://python-poetry.org/docs/pyproject/#keywords

@@ -2,9 +2,27 @@ import time
 
 from eth_abi import encode
 from eth_account.messages import encode_structured_data
+from eth_keys.main import PrivateKey
 from eth_utils import keccak, to_hex
 
-from hyperliquid.utils.types import Any, Literal, Optional, Tuple, TypedDict, Union, Cloid
+from fast_hl.utils.types import Any, Literal, Optional, Tuple, TypedDict, Union, Cloid
+
+from eth_typing import (
+    Hash32,
+)
+from eth_account.messages import SignableMessage
+from hexbytes import (
+    HexBytes,
+)
+from eth_account.datastructures import (
+    SignedMessage,
+)
+from eth_account._utils.signing import to_bytes32, to_eth_v
+from eth_utils import (
+    to_bytes,
+)
+from typing import cast
+from capsa_tk.utils.ethereum_signing import signing_module
 
 ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
@@ -293,10 +311,52 @@ def sign_agent(wallet, agent, is_mainnet):
     return sign_inner(wallet, data)
 
 
+
+def _hash_eip191_message(signable_message: SignableMessage) -> Hash32:
+    version = signable_message.version
+
+    joined = b"\x19" + version + signable_message.header + signable_message.body
+    res = signing_module.keccak(joined, len(joined))
+    res2 = Hash32(bytes.fromhex(res.decode()))
+    return res2
+
+def sign_message_hash(key, msg_hash):
+    custom_signature = bytes.fromhex(signing_module.sign_message(bytes(key), msg_hash).decode())
+    r = custom_signature[:32]
+    s = custom_signature[32:64]
+    v = custom_signature[64:]
+
+    return (v, r, s, custom_signature)
+
+def custom_sign(private_key, structured_data):
+    message_hash = _hash_eip191_message(structured_data)
+    msg_hash_bytes = HexBytes(message_hash)
+
+    (v, r, s, eth_signature_bytes) = sign_message_hash(private_key, msg_hash_bytes)
+    signed_message = SignedMessage(
+        messageHash=msg_hash_bytes,
+        r=int.from_bytes(r),
+        s=int.from_bytes(s),
+        v=int.from_bytes(v),
+        signature=HexBytes(eth_signature_bytes),
+    )
+
+    return cast(SignedMessage, signed_message)
+
 def sign_inner(wallet, data):
     structured_data = encode_structured_data(data)
-    signed = wallet.sign_message(structured_data)
-    return {"r": to_hex(signed["r"]), "s": to_hex(signed["s"]), "v": signed["v"]}
+
+    # t0 = time.perf_counter()
+    # signed = wallet.sign_message(structured_data)
+    # print(f"signed in {(time.perf_counter() - t0) * 1000:.4f}ms")
+    # print(f"{signed=}")
+
+    # t1 = time.perf_counter()
+    signed_2 = custom_sign(wallet.key, structured_data)
+    # print(f"signed2 in {(time.perf_counter() - t1) * 1000:.4f}ms")
+    # print(f"{signed_2=}")
+
+    return {"r": to_hex(signed_2["r"]), "s": to_hex(signed_2["s"]), "v": signed_2["v"]}
 
 
 def float_to_wire(x: float) -> str:

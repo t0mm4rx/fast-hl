@@ -1,16 +1,17 @@
-from hyperliquid.api import API
-from hyperliquid.utils.types import Any, Callable, Meta, Optional, Subscription, cast, Cloid
-from hyperliquid.websocket_manager import WebsocketManager
+from fast_hl.api import API
+from fast_hl.utils.types import Any, Callable, Meta, Optional, Subscription, cast, Cloid
+from fast_hl.websocket_manager import WebsocketManager
 
 
 class Info(API):
-    def __init__(self, base_url=None, skip_ws=False):
-        super().__init__(base_url)
+
+    async def __init__(self, base_url=None, skip_ws=False):
+        await super().__init__(base_url)
         if not skip_ws:
             self.ws_manager = WebsocketManager(self.base_url)
             self.ws_manager.start()
 
-    def user_state(self, address: str) -> Any:
+    async def user_state(self, address: str) -> Any:
         """Retrieve trading details about a user.
 
         POST /info
@@ -52,9 +53,9 @@ class Info(API):
                     totalRawUsd: float string,
                 }
         """
-        return self.post("/info", {"type": "clearinghouseState", "user": address})
+        return await self.post("/info", {"type": "clearinghouseState", "user": address})
 
-    def open_orders(self, address: str) -> Any:
+    async def open_orders(self, address: str) -> Any:
         """Retrieve a user's open orders.
 
         POST /info
@@ -73,9 +74,9 @@ class Info(API):
             }
         ]
         """
-        return self.post("/info", {"type": "openOrders", "user": address})
+        return await self.post("/info", {"type": "openOrders", "user": address})
 
-    def frontend_open_orders(self, address: str) -> Any:
+    async def frontend_open_orders(self, address: str) -> Any:
         """Retrieve a user's open orders with additional frontend info.
 
         POST /info
@@ -106,9 +107,9 @@ class Info(API):
             }
         ]
         """
-        return self.post("/info", {"type": "frontendOpenOrders", "user": address})
+        return await self.post("/info", {"type": "frontendOpenOrders", "user": address})
 
-    def all_mids(self) -> Any:
+    async def all_mids(self) -> Any:
         """Retrieve all mids for all actively traded coins.
 
         POST /info
@@ -120,9 +121,9 @@ class Info(API):
               any other coins which are trading: float string
             }
         """
-        return self.post("/info", {"type": "allMids"})
+        return await self.post("/info", {"type": "allMids"})
 
-    def user_fills(self, address: str) -> Any:
+    async def user_fills(self, address: str) -> Any:
         """Retrieve a given user's fills.
 
         POST /info
@@ -149,9 +150,9 @@ class Info(API):
               ...
             ]
         """
-        return self.post("/info", {"type": "userFills", "user": address})
+        return await self.post("/info", {"type": "userFills", "user": address})
 
-    def meta(self) -> Meta:
+    async def meta(self) -> Meta:
         """Retrieve exchange metadata
 
         POST /info
@@ -167,9 +168,9 @@ class Info(API):
                 ]
             }
         """
-        return cast(Meta, self.post("/info", {"type": "meta"}))
+        return cast(Meta, await self.post("/info", {"type": "meta"}))
 
-    def funding_history(self, coin: str, startTime: int, endTime: Optional[int] = None) -> Any:
+    async def funding_history(self, coin: str, startTime: int, endTime: Optional[int] = None) -> Any:
         """Retrieve funding history for a given coin
 
         POST /info
@@ -191,12 +192,12 @@ class Info(API):
             ]
         """
         if endTime is not None:
-            return self.post(
+            return await self.post(
                 "/info", {"type": "fundingHistory", "coin": coin, "startTime": startTime, "endTime": endTime}
             )
-        return self.post("/info", {"type": "fundingHistory", "coin": coin, "startTime": startTime})
+        return await self.post("/info", {"type": "fundingHistory", "coin": coin, "startTime": startTime})
 
-    def l2_snapshot(self, coin: str) -> Any:
+    async def l2_snapshot(self, coin: str) -> Any:
         """Retrieve L2 snapshot for a given coin
 
         POST /info
@@ -221,9 +222,9 @@ class Info(API):
                 time: int
             }
         """
-        return self.post("/info", {"type": "l2Book", "coin": coin})
+        return await self.post("/info", {"type": "l2Book", "coin": coin})
 
-    def candles_snapshot(self, coin: str, interval: str, startTime: int, endTime: int) -> Any:
+    async def candles_snapshot(self, coin: str, interval: str, startTime: int, endTime: int) -> Any:
         """Retrieve candles snapshot for a given coin
 
         POST /info
@@ -252,13 +253,13 @@ class Info(API):
             ]
         """
         req = {"coin": coin, "interval": interval, "startTime": startTime, "endTime": endTime}
-        return self.post("/info", {"type": "candleSnapshot", "req": req})
+        return await self.post("/info", {"type": "candleSnapshot", "req": req})
 
-    def query_order_by_oid(self, user: str, oid: int) -> Any:
-        return self.post("/info", {"type": "orderStatus", "user": user, "oid": oid})
+    async def query_order_by_oid(self, user: str, oid: int) -> Any:
+        return await self.post("/info", {"type": "orderStatus", "user": user, "oid": oid})
 
-    def query_order_by_cloid(self, user: str, cloid: Cloid) -> Any:
-        return self.post("/info", {"type": "orderStatus", "user": user, "oid": cloid.to_raw()})
+    async def query_order_by_cloid(self, user: str, cloid: Cloid) -> Any:
+        return await self.post("/info", {"type": "orderStatus", "user": user, "oid": cloid.to_raw()})
 
     def subscribe(self, subscription: Subscription, callback: Callable[[Any], None]) -> int:
         if self.ws_manager is None:
