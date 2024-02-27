@@ -37,15 +37,15 @@ classifiers = [  #! Update me
 "hyperliquid-python-sdk" = "hyperliquid.__main__:app"
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.11"
 eth-utils = "^2.1.0"
-eth-abi = "^3.0.1"
+eth-abi = "^5.0.0"
 eth-account = "^0.8.0"
 websocket-client = "^1.5.1"
 requests = "^2.31.0"
 
 [tool.poetry.dev-dependencies]
-python = "3.10.10"
+python = "3.11"
 pytest = "^7.2.1"
 pytest-recording = "^0.12.2"
 bandit = "^1.7.1"
